@@ -3,6 +3,10 @@
 //statistiche: n studenti fuori corso (comando 3)
 //             media voti dei ragazzi all'anno n ()
 
+
+//Scadenza 24/05 TUTTE LE FUNZIONI DEVONO ESSERE TERMINATE
+
+
 .section .rodata
 filename: .asciz "studenti.dat"
 read_mode: .asciz "r"
