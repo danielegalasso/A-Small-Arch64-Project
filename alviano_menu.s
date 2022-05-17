@@ -53,30 +53,43 @@ tmp_int: .skip 8
 auto: .skip auto_size_aligned * max_auto
 
 
+//
 .macro read_int prompt
+    //stampa string
     adr x0, \prompt
     bl printf
 
+    //scannerizza caricando in tmp_int
     adr x0, fmt_scan_int
     adr x1, tmp_int
     bl scanf
-
+    //carica il valore scansionato in x0
     ldr x0, tmp_int
 .endm
 
 .macro read_str prompt
+    //stampa string
     adr x0, \prompt
     bl printf
 
+    //scannerizza caricando in tmp_str
     adr x0, fmt_scan_str
     adr x1, tmp_str
     bl scanf
 .endm
 
 .macro save_to item, offset, size
+
+    //ciscuno studente occupa una determinata posizione nella ram, noi vogliamo salvare con questa funzione un singolo elemento che compone lo studente
+    //in x0 andrà la posizione nella ram dell'elemento da salvare per studente (intendiamo per elemento ciò che compone uno
+    // studente dunque: matricola, nome, media moti, anno)
+
     add x0, \item, \offset
+    //in x1 andrà l'indirizzo della stringa dell'elemento da salvare
     ldr x1, =tmp_str
+    //in posizione x2 qunato spazio allocare per questo elemento da salvare
     mov x2, \size
+    //questa funzione richiede in posizione x0 la destinazione, in x1: cio da salvare, in x2: la dimensione
     bl strncpy
 
     add x0, \item, \offset + \size - 1
@@ -133,13 +146,16 @@ load_data:
     stp x29, x30, [sp, #-16]!
     str x19, [sp, #-8]!
     
+    //apre un file in sola lettura
     adr x0, filename
     adr x1, read_mode
     bl fopen
 
+    //se non inserisci alcun file termina il programma
     cmp x0, #0
     beq end_load_data
 
+    
     mov x19, x0
 
     ldr x0, =n_auto
