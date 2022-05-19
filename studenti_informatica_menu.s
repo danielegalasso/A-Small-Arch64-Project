@@ -57,7 +57,7 @@ n_studente: .word 0
 .equ size_studente_anno, 4
 .equ offset_studente_matricola, 0
 .equ offset_studente_nome, offset_studente_matricola + size_studente_matricola
-.equ offset_auto_media_voti, offset_studente_nome + size_studente_nome
+.equ offset_studente_media_voti, offset_studente_nome + size_studente_nome
 .equ offset_studente_anno, offset_media_voti + size_media_voti
 .equ studente_size_aligned, 32
 
