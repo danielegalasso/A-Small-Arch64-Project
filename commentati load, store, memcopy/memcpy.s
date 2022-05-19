@@ -43,7 +43,7 @@ fmt_after: .asciz "*** After delete ***\n\n"
 .data
 // offset:                  11111111112222222222 333333333344444444445555555555 6   6666   6 6 6 6677777777778888888888
 //                012345678901234567890123456789 012345678901234567890123456789 0   1234   5 6 7 8901234567890123456789
-students: .ascii "Mario                        \0Alviano                      \01\x0A\0\0\0...."
+students: .ascii "Mario                        \0Alviano                      \01\010"
           .ascii "Luigi                        \0Mario                        \0\x02   \x0B\0\0\0...."
           .ascii "Principessa                  \0Peach                        \0\x01   \x0A\0\0\0...."
 

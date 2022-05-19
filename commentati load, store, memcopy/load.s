@@ -47,7 +47,7 @@ main:
         mov x19, x0
 
         ldr x0, =students       //in x0 l'indirizzo della memoria dove caricaricare i dati, avevo lasciato nella porzione .bss
-        mov x1, size_student    //dimensione per elemento
+        mov x1, size_student    //quanti byte occupa ciascuno studente
         mov x2, #3              //numero di elementi
         mov x3, x19             //in x3 va il file
         bl fread                //questa funzione permette il caricamento
