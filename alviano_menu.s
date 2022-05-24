@@ -78,6 +78,19 @@ auto: .skip auto_size_aligned * max_auto
     bl scanf
 .endm
 
+.macro read_double prompt
+    //stampa string
+    adr x0, \prompt
+    bl printf
+
+    //scannerizza caricando in tmp_double
+    adr x0, fmt_scan_double
+    adr x1, tmp_double
+    bl scanf
+    //carica il valore scansionato in d0
+    ldr d0, tmp_double
+.endm
+
 .macro save_to item, offset, size
 
     //ciscuno studente occupa una determinata posizione nella ram, noi vogliamo salvare con questa funzione un singolo elemento che compone lo studente
@@ -279,9 +292,9 @@ aggiungi_auto:
     stp x19, x20, [sp, #-16]!
     
     ldr x19, n_auto
-    ldr x20, =auto
+    ldr x20, =auto 
     mov x0, auto_size_aligned
-    mul x0, x19, x0
+    mul x0, x19, x0 
     add x20, x20, x0
     
     cmp x19, max_auto
