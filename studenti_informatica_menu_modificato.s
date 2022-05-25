@@ -3,7 +3,6 @@
 
 //Mattia e Davide funzioni mancano + fare molte prove
 
-
 .section .rodata
     filename: .asciz "studenti.dat"
     read_mode: .asciz "r"
@@ -197,7 +196,7 @@ main:
         //se 2 elimina studnete
         cmp x0, #2
         bne no_elimina_studenti
-        //bl elimina_studente
+        bl elimina_studente
         //prosegui 
         no_elimina_studenti:
 
@@ -212,7 +211,7 @@ main:
         //se 4 stampare gli studenti sopra una determinata media
         cmp x0, #4
         bne no_studenti_sopra_media
-        //bl print_tabella_media
+        bl print_tabella_media
         //prosegui
         no_studenti_sopra_media:
 
@@ -226,7 +225,7 @@ main:
         //se 6 stampa media voti di un particolare anno
         cmp x0, #6
         bne no_stampa_media_part_anno
-        bl print_studente_media//////////////////////////////////////////////è questo?
+        bl print_studente_media//////////////////////////////////////////////////////////////non so quale funzione vada
         //prosegui 
         no_stampa_media_part_anno:
 
@@ -639,6 +638,7 @@ FuoriCorso:
     .size FuoriCorso, (. -FuoriCorso)
 .type print_anno, %function
 print_anno:
+
     // prologo della funzione
     stp x29, x30, [sp, #-16]!
     stp x19, x20, [sp, #-16]!
@@ -695,4 +695,84 @@ print_anno:
     ret
     .size print_anno, (. - print_anno)
 
+.type elimina_studente, %function
+elimina_studente:
+       stp x29, x30, [sp, #-16]!
+    
+    read_int fmt_prompt_index //in x0 andà lo studente da eliminare
 
+    cmp x0, 0
+    blt end_elimina_studente  //se il numero inserito è minore di 1: esci dalla funzione
+
+
+    ldr x1, n_studente        //in x1 andrà il numero di tutti gli studenti
+    sub x1, x1, 1             //diminuisco di 1 perchè iniziando a contare da 0 il numero di indice massimo sarà ntot-1
+    cmp x0, x1
+    bgt end_elimina_studente  //se x0>x1 esci dalla funzione
+
+    //per fare l'eliminazione sposteremo gli elemnti da x0 in poi di una posizione in meno e ridurremo il numero di studenti di 1
+    //sub x5, x0, 1   // questa cosa non va bene perchè è come se il primo elemnto fosse l'elemnto 1 quando noi vogliamo sia l'elemento 0
+    mov x5, x0 //in x5 ho la posizione dove verranno spostati i dati (copio il numero dello studente)
+    ldr x6, n_studente  //in x6 il numero totale degli studenti
+    sub x6, x6, x0  // numero di studenti che dobbiamo spostare (qualli >x0)
+    mov x7, studente_size_aligned
+    ldr x0, =students
+    madd x0, x5, x7, x0 //in x0 metto la destinazione (dove dovranno essere incollati ergo nello studente da elimare)
+    add x1, x0, x7      //in x1 l'indirizzo del primo studente del blocco da copiare
+    mul x2, x6, x7      //quanti byte copiare 
+    bl memcpy
+
+    //aggiorno il numero degli studenti
+    ldr x0, =n_studente 
+    ldr x1, [x0]
+    sub x1, x1, #1
+    str x1, [x0]
+
+    bl save_data
+
+    end_elimina_studente:
+    
+    ldp x29, x30, [sp], #16
+    ret
+    .size elimina_studente, (. - elimina_studente)
+
+.type MediaVoti, %function
+MediaVoti:
+    // prologo della funzione
+    stp x29, x30, [sp, #-16]!
+    read_int fmt_prompt_anno                    //serve per prendere in input l'anno richiesto
+    mov w2, #0
+    scvtf d2, w2                                //somma delle medie dei voti degli studenti dell'anno preso in input
+    mov w3, #0                                  //numero degli studenti di quell'anno
+    mov w4, #0                                  //indice del loop
+    ldr w5, n_studente                          //numero di tutti gli studenti
+    adr x6, students                            //primo studente
+    mov w7, studente_size_aligned
+    loop:
+    cmp w4, w5                                  //condizione di uscita dal loop
+    beq endloop                                 //se sono identici
+                                                //vedere se l'alunno appartiene all'anno dato in input
+    umaddl x8, w7, w4, x6                         // inserisco in x8 l'indirizzo dello studente iesimo
+    ldr x9, [x8, offset_studente_anno]          // carico in x9 l'anno dello studente iesimo
+    cmp x9, x0
+    bne true   
+        //se lo studente appartiene all'anno scelto
+        add w3, w3, #1                          //incrementa il numero degli studenti di quell'anno
+        ldr d9, [x8, offset_studente_media_voti]//media dei voti dello studente i-esimo
+        fadd d2, d2, d9                         //incrementa la somma delle medie dei voti
+    true:
+    add w4, w4, #1                                  //incremento il contatore
+    //cmp w4, x5                                //condizione di uscita dal loop
+    //bls loop                                  //se w4 è minore ripeti il loop
+    b loop
+    endloop:
+    scvtf d3, w3
+    mov w1, w3
+    fdiv d0, d2, d3                             //divido la somma delle medie dei voti con il numero degli studenti dell'anno in input
+    //adr x0, fmt_scan_int               //modificare il format
+    adr x0, fmt_media_voti_double
+    bl printf
+    // epilogo della funzione
+    ldp x29, x30, [sp], #16
+    ret
+    .size MediaVoti, (. -MediaVoti)

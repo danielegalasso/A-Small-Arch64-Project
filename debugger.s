@@ -164,9 +164,9 @@ tmp_double: .skip 8                                             //MODIFICATO AGG
 .global main
 main:
     stp x29, x30, [sp, #-16]!
-
+    bl print_menu
     bl elimina_studente
-
+    bl print_menu
     mov x0, #0
     ldp x29, x30, [sp], #16
     ret
@@ -174,33 +174,33 @@ main:
 
 .type elimina_studente, %function
 elimina_studente:
-    stp x29, x30, [sp, #-16]!
+       stp x29, x30, [sp, #-16]!
     
-    read_int fmt_prompt_index
-    //in x0 andrà lo studnete da eliminare
+    read_int fmt_prompt_index //in x0 andà lo studente da eliminare
 
-    cmp x0, 1
-    blt end_elimina_studente
+    cmp x0, 0
+    blt end_elimina_studente  //se il numero inserito è minore di 1: esci dalla funzione
 
-    //in x1 carico il numero degli studneti totali
-    ldr x1, n_studente
-    //se l'indice dello studente da eliminare supera il numero massimo termina la funzione
+
+    ldr x1, n_studente        //in x1 andrà il numero di tutti gli studenti
+    sub x1, x1, 1             //diminuisco di 1 perchè iniziando a contare da 0 il numero di indice massimo sarà ntot-1
     cmp x0, x1
-    bgt end_elimina_studente
+    bgt end_elimina_studente  //se x0>x1 esci dalla funzione
 
-    //sub x5, x0, 1   // selected index (questo se partiamo a contare gli studenti da 1)
-    ldr x6, n_studente
-    sub x6, x6, x0  // number of student after selected index?
+    //per fare l'eliminazione sposteremo gli elemnti da x0 in poi di una posizione in meno e ridurremo il numero di studenti di 1
+    //sub x5, x0, 1   // questa cosa non va bene perchè è come se il primo elemnto fosse l'elemnto 1 quando noi vogliamo sia l'elemento 0
+    mov x5, x0 //in x5 ho la posizione dove verranno spostati i dati (copio il numero dello studente)
+    ldr x6, n_studente  //in x6 il numero totale degli studenti
+    sub x6, x6, x0  // numero di studenti che dobbiamo spostare (qualli >x0)
     mov x7, studente_size_aligned
-
     ldr x0, =students
-    mul x1, x5, x7  // offset to dest
-    add x0, x0, x1  // dest
-    add x1, x0, x7  // source
-    mul x2, x6, x7  // bytes to copy
+    madd x0, x5, x7, x0 //in x0 metto la destinazione (dove dovranno essere incollati ergo nello studente da elimare)
+    add x1, x0, x7      //in x1 l'indirizzo del primo studente del blocco da copiare
+    mul x2, x6, x7      //quanti byte copiare 
     bl memcpy
 
-    ldr x0, =n_studente
+    //aggiorno il numero degli studenti
+    ldr x0, =n_studente 
     ldr x1, [x0]
     sub x1, x1, #1
     str x1, [x0]
@@ -213,6 +213,163 @@ elimina_studente:
     ret
     .size elimina_studente, (. - elimina_studente)
 
+    /*
+    stp x29, x30, [sp, #-16]!
+    
+    read_int fmt_prompt_index
+    //in x0 andrà lo studnete da eliminare     x0=2
+
+    cmp x0, 1
+    blt end_elimina_studente
+
+    //in x1 carico il numero degli studneti totali
+    ldr x1, n_studente
+    //se l'indice dello studente da eliminare supera il numero massimo termina la funzione
+    cmp x0, x1
+    bgt end_elimina_studente
+
+    sub x5, x0, 1   // l'indice dove verrà poi spostato il numero (idice -1)
+    
+    //mov x6, x1 //mi salvo in x6  il numero degli studneti
+    sub x6, x1, 1 //quanti studenti rimarranno
+    sub x6, x6, x0  //quanti sono gli studenti successivi a x0? ovvero gli studenti che dovranno essere spostati di una posizione8
+
+    //sub x1, x1, 1  // numero di studenti dopo l'eliminazione
+    mov x7, studente_size_aligned   //in x7 quanto occupa uno studente
+
+    ldr x0, =students
+    madd x1, x5, x7, x0  // offset to dest (studente 1)
+    add x1, x0, x7  // offset source       (studente 2)
+    mul x2, x6, x7  // bytes to copy       (devo copiare bytes da studente 2 fino all'ultimo studente) x6 sarebbe gli studeneti da 3 in poi
+    bl memcpy
+
+    //non uso x6 perchè ho chiamato memcpy////////////////////////////////////////////////////////////////////////////////////////////77
+    ldr x0, =n_studente
+    ldr x1, [x0]
+    sub x1, x1, #1  //salva quanti studenti sono rimasti
+    str x1, [x0]
+
+    bl save_data
+
+    end_elimina_studente:
+    
+    ldp x29, x30, [sp], #16
+    ret
+    .size elimina_studente, (. - elimina_studente)
+    */
+.type save_data, %function
+save_data:
+    // funzione per salvare su file i dati del nostro array
+    // input: niente
+    // outpit: niente nei registri, ma salva su file l'array degli studenti
+    //prologo della funzione
+    stp x29, x30, [sp, #-16]!
+    str x19, [sp, #-8]!
+    // apro il file in modalità scrittura
+    adr x0, filename
+    adr x1, write_mode
+    bl fopen
+    // controllo che il file si sia aperto correttamente,
+    // se non si è aperto correttamente salto alla stampa dell'errore
+    cmp x0, #0
+    beq fail_save_data
+        // sposto il puntatore al file in un registro non volatile
+        mov x19, x0
+        // salvo prima nel file il numero di studenti che ci sono nell'array
+        ldr x0, =n_studente
+        mov x1, #4
+        mov x2, #1
+        mov x3, x19
+        bl fwrite
+        // salvo adesso l'array degli studenti
+        ldr x0, =students
+        mov x1, studente_size_aligned
+        mov x2, max_studente
+        mov x3, x19
+        bl fwrite
+        // chiudo il file
+        mov x0, x19
+        bl fclose
+
+        b end_save_data // salto alla fine della funzione per evitare la stampa dell'errore
+
+    //se il file non si è aperto correttamente stampa la stringa fmt_file_save_data
+    fail_save_data:
+        adr x0, fmt_fail_save_data
+        bl printf
+
+    end_save_data:
+    // epilogo della funzione
+    ldr x19, [sp], #8
+    ldp x29, x30, [sp], #16
+    ret
+    .size save_data, (. - save_data)
+
+
+
+
+.type print_menu, %function
+print_menu:
+    // funzione per stampare il menu
+    // input: niente
+    // output: niente
+    // prologo della funzione
+    stp x29, x30, [sp, #-16]!
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    
+    // stampo il titolo del programma
+    adr x0, fmt_menu_title
+    bl printf
+    // stampo gli header della tabella dei dati
+    adr x0, fmt_menu_line
+    bl printf
+    adr x0, fmt_menu_header
+    bl printf
+    adr x0, fmt_menu_line
+    bl printf
+    // loop per stampare gli studenti nell'array
+    mov w19, #0              // indice del ciclo
+    ldr w20, n_studente      // numero degli studenti
+    ldr x21, =students       // puntatore all'array degli studenti
+    print_entries_loop:
+        // controllo del ciclo
+        cmp w19, w20
+        bge end_print_entries_loop //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!               //DOMANDA PERCHè I PUNTI ESCLAMATIVI
+        // stampa lo studente iesimo dell'array [dove i sta in x19]        
+        /*
+        //questa funzione qui stampa di ogni iesimo-studente le sue informazioni
+        mov x1, studente_size_aligned
+        madd x0, x1, x19, x21  // x0 = x21 + (x1 * x19)  moltiplichiamo per i volte lo spazio che occupa ogni studente e aggiungiamo l'indirizzo di students così da ottenere l'indirizzo dell'iesimo studente
+        //inserisco nei registri i campi dello studente
+        ldr w1, [x0, offset_studente_matricola] //in x1 c'è l'indirizzo dello studente iesimo (prendi fino a \0 ovvero end-string) non è caricato in un registro poichè stringa non entra in registro 64 bit
+        add x2, x0, offset_studente_nome
+        ldr d0, [x0, offset_studente_media_voti]
+        ldr w3, [x0, offset_studente_anno]
+        adr x0, fmt_menu_entry
+        bl printf
+        */
+        print w19
+        // aumento l'indice con i+1                                                     //MODIFICATO QUESTA PARTE, ORA IL CODICE COMMENTATO NON è USATO, SI USA LA MACRO AL SUO POSTO
+        add w19, w19, #1
+        b print_entries_loop
+    end_print_entries_loop:
+
+    //stampa una linea di trattini
+    adr x0, fmt_menu_line
+    bl printf
+    
+    //stampa le opzioni possibili
+    adr x0, fmt_menu_options
+    bl printf
+    
+    // epilogo della funzione
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+    .size print_menu, (. - print_menu)
+/*
 .type MediaVoti, %function
 MediaVoti:
     stp x29, x30, [sp, #-16]!
@@ -246,7 +403,7 @@ MediaVoti:
     ldp x29, x30, [sp], #16
     ret
     .size MediaVoti, (. -MediaVoti)
-
+*/
 /*
 .type print_tabella_media, %function
 print_tabella_media:
