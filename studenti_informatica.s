@@ -1,17 +1,31 @@
+// Progetto del corso Architettura degli Elaboratori
+// anno: 2021/2022, secondo semestre
+// gruppo 11
+/* autori:
+    Biamonte Salvatore => funzione aggiungi studente
+    Bruno Mario        => funzione stampare gli studenti di un particolare anno
+    Galardo Emanuele   => funzione stampare gli studenti sopra una determinata media
+    Galasso Daniele    => funzione scambia studenti e revisione codice
+    Martino Marco      => funzione studenti fuoricorso
+    Pantisano Mattia   => funzione elimina studente
+    Petitto Davide     => funzione media voti di un particolare anno
+    Pirrò Davide       => funzione ordina studenti e revisione codice
+*/
+
 .section .rodata
     filename: .asciz "studenti.dat"
     read_mode: .asciz "r"
     write_mode: .asciz "w"
     fmt_menu_title:
-        .ascii "******************\n"
-        .ascii "* Studenti del corso di studi in informatica *\n"
-        .asciz "******************\n"
+        .ascii "**************************************************\n"
+        .ascii "*** Studenti del corso di studi in informatica ***\n"
+        .asciz "**************************************************\n"
     fmt_menu_line:
-        .asciz "----------o---------------------------------o----------o------\n"
+        .asciz "--o-----------o---------------------------------o----------o------\n"
     fmt_menu_header:
-        .asciz "MATRICOLA | NOME                            |MEDIA-VOTI|ANNO\n"
+        .asciz "# | MATRICOLA | NOME                            |MEDIA-VOTI|ANNO\n"
     fmt_menu_entry:
-        .asciz "%06d    | %-32s|%-2.1f      |%-1d\n" 
+        .asciz "%1d | %06d    | %-32s|%-2.1f      |%-1d\n" 
         
     fmt_menu_options:                                                                                   
         .ascii "1: Aggiungi studente\n"
@@ -21,25 +35,31 @@
         .ascii "5: Numero studenti fuori corso\n"                                                       // statistica intero
         .ascii "6: Media voti ragazzi di un particolare anno (double)\n"                                // statistica double            
         .ascii "7: Scambiare due studenti\n"
+        .ascii "8: Ordinare gli studenti per matricola crescente\n"
         .asciz "0: Esci\n"
 
     fmt_nessuno_studente_trovato: .asciz "\n                --- Nessun risultato ---\n\n"
     fmt_studenti_fuoricorso: .asciz "\nNumero studenti fuori corso: %d\n\n"
-    fmt_media_voti_double: .asciz "\nMedia voti: %.2f\n\n"
+    fmt_media_voti_double: .asciz "\nMedia voti: %2.1f\n\n"
     fmt_fail_save_data: .asciz "\nImpossibile salvere i dati.\n\n"
     fmt_fail_aggiungi_studente: .asciz "\nMemoria insufficiente. Eliminare uno studente, quindi riprovare.\n\n"
     fmt_fail_calcola_prezzo_medio: .asciz "\nNessuno studente presente.\n\n"
     fmt_scan_int: .asciz "%d"
     fmt_scan_double: .asciz "%lf"
     fmt_scan_str: .asciz "%127s"
+    fmt_space_str: .asciz "premi un tasto per continuare...\n\n"
     fmt_prompt_menu: .asciz "? "
     fmt_prompt_matricola: .asciz "Matricola: "
     fmt_prompt_nome: .asciz "Nome: "
     fmt_prompt_voti: .asciz "Media-voti: "
     fmt_prompt_anno: .asciz "Anno: "
     fmt_prompt_index: .asciz "# (fuori range per annullare): "
-    fmt_prompt_scambia: .asciz "Studente da scambiare:  "
-    fmt_chiedi_stringa: .asciz "Inserisci qualsiasi cosa per continuare"
+    //fmt_chiedi_stringa: .asciz "Inserisci qualsiasi cosa per continuare"
+
+
+    fmt_chiedi_stringa: .asciz "Inserisci qualsiasi carattere per visualizzare le modifiche e proseguire la visualizzazione del menù: "
+    fmt_prompt_stringa: .asciz "%s"
+    fmt_scan_chiedi: .asciz "%s"
     .align 2
 
 .data
@@ -122,10 +142,11 @@
     mov x1, studente_size_aligned               //x1=56 per quanta memoria occupata per studente
     mov w2, \index                              //lo studente n°?
     madd x0, x1, x2, x0                         // x0 = x0 + (x1 * x2) //in x0 ora ci sarà l'indirizzo dello studente iesimo
-    ldr w1, [x0, offset_studente_matricola]     // in x1 c'è l'indirizzo dello studente iesimo (prendi fino a \0 ovvero end-string) non è caricato in un registro poichè stringa non entra in registro 64 bit
-    add x2, x0, offset_studente_nome
+    mov w1, \index
+    ldr w2, [x0, offset_studente_matricola]     // in x1 c'è l'indirizzo dello studente iesimo (prendi fino a \0 ovvero end-string) non è caricato in un registro poichè stringa non entra in registro 64 bit
+    add x3, x0, offset_studente_nome
     ldr d0, [x0, offset_studente_media_voti]
-    ldr w3, [x0, offset_studente_anno]
+    ldr w4, [x0, offset_studente_anno]
     adr x0, fmt_menu_entry
     bl printf
 .endm
@@ -136,6 +157,7 @@
 .global main
 main:
     stp x29, x30, [sp, #-16]!
+    str x19, [sp, #-8]!
     //caricamento dati dal file, appena avvi l'applicazione parti dai dati precedenti
     bl load_data
     main_loop:
@@ -179,15 +201,25 @@ main:
         //se 7 scambia due studenti
         cmp x0, #7
         bne no_scambia_due_studenti
+        read_int fmt_prompt_index
+        ldr w19, tmp_int
+        read_int fmt_prompt_index
+        ldr w0, tmp_int
+        mov w1, w19
         bl scambia
         no_scambia_due_studenti:
-        // input per passare da un ciclo all'altro
-        //read_str fmt_scan_str
+        cmp x0, #8
+        bne no_ordina_studenti
+        bl bubbleSort
+        no_ordina_studenti:
+        // input per passare da un ciclo all'altro interrompendo per un po' l'esecuzione per poter visualizzare i risultati
+        read_str fmt_chiedi_stringa
         // ritorno all'inizio del ciclo
         b main_loop
     end_main_loop:
     // epilogo della funzione
     mov w0, #0
+    ldr x19, [sp], #8
     ldp x29, x30, [sp], #16
     ret
     .size main, (. - main)
@@ -212,7 +244,7 @@ load_data:
     mov x2, #1                      // è solo un numero
     mov x3, x19
     bl fread
-    //carica gli n_studenti nella porzione di spazio students predichiarata nel .bss
+    //carica gli n_studente nella porzione di spazio students predichiarata nel .bss
     ldr x0, =students               // in x0 l'indirizzo della memoria dove caricaricare i dati, avevo lasciato nella porzione .bss
     mov x1, studente_size_aligned   // quanto spazio ciascuno studente occupa
     mov x2, max_studente            // prendo un determinato numero di elemeti prefissato dal file (per una questione di sicurezza)
@@ -356,8 +388,8 @@ elimina_studente:
     // prologo della funzione
     stp x29, x30, [sp, #-16]!
     read_int fmt_prompt_index           //in x0 andà lo studente da eliminare
-    cmp x0, 0
-    blt end_elimina_studente            //se il numero inserito è minore di 1: esci dalla funzione
+    cmp x0, #0
+    blt end_elimina_studente            //se il numero inserito è minore di 0: esci dalla funzione
     ldr x1, n_studente                  //in x1 andrà il numero di tutti gli studenti
     sub x1, x1, 1                       //diminuisco di 1 perchè iniziando a contare da 0 il numero di indice massimo sarà ntot-1
     cmp x0, x1
@@ -365,7 +397,7 @@ elimina_studente:
     //per fare l'eliminazione sposteremo gli elemnti da x0 in poi di una posizione in meno e ridurremo il numero di studenti di 1
     mov x5, x0                          //in x5 ho la posizione dove verranno spostati i dati (copio il numero dello studente)
     ldr x6, n_studente                  //in x6 il numero totale degli studenti
-    sub x6, x6, x0                      // numero di studenti che dobbiamo spostare (qualli >x0)
+    sub x6, x6, x0                      // numero di studenti che dobbiamo spostare (quelli >x0)
     mov x7, studente_size_aligned
     ldr x0, =students
     madd x0, x5, x7, x0                 //in x0 metto la destinazione (dove dovranno essere incollati ergo nello studente da elimare)
@@ -379,6 +411,7 @@ elimina_studente:
     str x1, [x0]
     bl save_data
     end_elimina_studente:
+    mov x0, #0                          // senza questo: inserissimo un valore> n_studenti e minore di 8, tornerebbe al main ed eseguirebbe la scelta corrispondente al numero poichè caricato in x0
     // epilogo della funzione
     ldp x29, x30, [sp], #16
     ret
@@ -583,39 +616,45 @@ scambia:
     stp x29, x30, [sp, #-16]!
     stp x19, x20, [sp, #-16]!
     str x21, [sp, #-8]!
-    //Questa funzione scannerizza due elementi
-    read_int fmt_prompt_scambia
-    ldr w20, tmp_int                    //w20=1
-    read_int fmt_prompt_scambia
-    ldr w21, tmp_int                    //w21=2
-    // ordino gli indici inseriti in ordine crescente
+    mov w20, w0                         // carico l'indice del primo studente in w20
+    ldr w0, n_studente                  // carico il numero degli studenti
+    cmp w20, w0                         // controllo che lo studente esista
+    bge fail_scambia_studenti           // salto alla fine
+    cmp w20, #0                         // confronto con 0 per evitare indici negativi
+    blt fail_scambia_studenti           // salto alla fine
+    mov w21, w1                         // carico l'indice del primo studente in w21
+    ldr w0, n_studente                  // carico il numero degli studenti
+    cmp w21, w0                         // controllo che lo studente esista
+    bge fail_scambia_studenti           // salto alla fine
+    cmp w21, #0                         // confronto con 0 per evitare indici negativi
+    blt fail_scambia_studenti           // salto alla fine
+    // ordino gli indici inseriti in modo crescente
     cmp w20, w21
     ble endif_scambia
     mov w0, w20
     mov w20, w21
     mov w21, w0
     endif_scambia:
-    ldr x19, =students                  //in x19 l'indirizzo degli studenti
-    // alloco la parte dello stack che uso per memorizzare temporaneamente studente0
-    sub sp, sp, studente_size_aligned   //è fatto con lo stack per flexare (esercizio di stile)
-    // 1°step  spostare lo studente0 nello stack
+    ldr x19, =students                  // in x19 l'indirizzo degli studenti
+    sub sp, sp, studente_size_aligned   // alloco la parte dello stack che uso per memorizzare temporaneamente studente0
+    // 1°step  copiare il primo studente nello stack
     mov w2, studente_size_aligned
-    umaddl x1, w2, w20, x19             //in x1 abbiamo inserito l'indirizzo dello studente0
-    mov w0, students
+    mov x0, sp                          // copio in x0 l'indirizzo dello stack pointer (la destinazione)       
+    umaddl x1, w2, w20, x19             // in x1 abbiamo inserito l'indirizzo del primo studente (la sorgente)
     bl memcpy
-    // 2°step  spostare lo studente1 in studnete0
+    // 2°step  copiare il secondo studente nel primo studente
     mov w2, studente_size_aligned
-    umaddl x0, w1, w20, x19             //in x0 abbiamo inserito l'indirizzo dello studente0
-    umaddl x1, w2, w21, x19             //in x1 abbiamo inserito l'indirizzo dello studente1
-    bl memcpy                           //lo studente1 andrà al posto di studente0
-    // 3° step spostare temp in studente1
+    umaddl x0, w2, w20, x19             //in x0 abbiamo inserito l'indirizzo del primo studente (la destinazione)
+    umaddl x1, w2, w21, x19             //in x1 abbiamo inserito l'indirizzo del secondo studente (la sorgente)
+    bl memcpy                           // il secondo studente andrà al posto del primo studente
+    // 3° step copiare il primo studente dallo stack a secondo studente
     mov w2, studente_size_aligned
-    umaddl x0, w2, w21, x19             // in x0 abbiamo inserito l'indirizzo dello studente1 
-    mov x1, sp                          // in x1 abbiamo inserito lo stack pointer
-    bl memcpy                           //lo studente0 salvato nello stack andrà al posto di studente1
-    // dealloco la parte dello stack che ho usato per memorizzare temporaneamente studente0
-    add sp, sp, studente_size_aligned
-    bl save_data
+    umaddl x0, w2, w21, x19             // in x0 abbiamo inserito l'indirizzo del secondo studente (la destinazione)
+    mov x1, sp                          // in x1 abbiamo inserito lo stack pointer (la sorgente)
+    bl memcpy                           // il primo studente salvato nello stack andrà al posto del secondo studente
+    add sp, sp, studente_size_aligned   // dealloco la parte dello stack che ho usato per memorizzare temporaneamente il primo studente
+    bl save_data                        // salvo nuovamente gli studenti nel file
+    fail_scambia_studenti:
     // epilogo della funzione
     mov x0, #4
     ldr x21, [sp], #8
@@ -623,3 +662,62 @@ scambia:
     ldp x29, x30, [sp], #16
     ret
     .size scambia, (. -scambia)
+
+// funzione bubbleSort che ordina gli elementi di un vettore in ordine crescente
+// Attenzione! sovrascrive l'array non ordinato
+.type bubbleSort, %function
+bubbleSort:
+    // prologo della funzione
+    stp x29, x30, [sp, #-16]!
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
+    str x27, [sp, #-8]!
+    // post-tested loop per ciclare le passate del bubbleSort con indice j che 
+    // va da 1 a n  (E' come se questo ciclo esterno andasse da sinistra verso destra, ad ogni passata un'elemento da sinistra in più sarà stato ordinato)
+    adr x19, students                       // carico in x19 il puntatore all'array con gli studenti
+    ldr w20, n_studente                     // carico in x20 il numero di studenti
+    mov w26, studente_size_aligned          // carico in w26 la grandezza di un determinato studente
+    mov w27, offset_studente_matricola      // carico in w27 l'offset per la matricola degli studenti
+    mov w21, #1                             // w21 indice j del ciclo esterno
+    loop_1:
+    // calcolo la posizione dell'ultimo elemento dell'array
+    sub w22, w20, #1                        // w22 indice i del ciclo interno (Questo ciclo va da destra verso sinistra e confronta ciascun elemnto con quello a sinistra)
+    mul w23, w22, w26
+    add x23, x19, x23
+    // post-tested loop della passata: cicla dall'ultimo elemento dell'array al
+    // primo elemento dell'array ancora non in posizione finale con indice i
+    // che va quindi da n-1 a j (Tutti i numeri prima di j sono ordinati perchè ogni passata ordinerà il primo numero )
+    loop_2:
+    ldr w24, [x23, w27, uxtw]               // carico la matricola dello studente i
+    sub x0, x23, x26                        // calcolo la posizione dello studente i-1
+    ldr w25, [x0, w27, uxtw]                // carico la matricola dello studente in posizione i-1
+    // confronto gli elementi che prima ho caricato
+    cmp w24, w25
+    bgt endif
+    // se la matricola dello studente in posizione i-1 è maggiore della matricola dello studente in posizione i
+    // li scambio
+    mov w0, w22                             // w0 indice dello studente i
+    sub w1, w22, #1                         // w1 indice dello studente i-1
+    bl scambia
+    endif:
+    // effettuo i controlli del post-tested loop interno: se i = j termina (e vai avanti con il ciclo esterno)
+    sub x23, x23, x26
+    sub w22, w22, #1
+    cmp w22, w21
+    bge loop_2
+    // effettuo i controlli del post tested loop esterno: se j = n termina
+    add w21, w21, #1
+    cmp w21, w20
+    blt loop_1
+    // epilogo della funzione    
+    mov x0, #0
+    ldr x27, [sp], #8
+    ldp x25, x26, [sp], #16
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+    .size bubbleSort, (. -bubbleSort)
