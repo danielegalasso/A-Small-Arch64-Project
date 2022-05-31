@@ -54,15 +54,13 @@
     fmt_prompt_voti: .asciz "Media-voti: "
     fmt_prompt_anno: .asciz "Anno: "
     fmt_prompt_index: .asciz "# (fuori range per annullare): "
-    //fmt_chiedi_stringa: .asciz "Inserisci qualsiasi cosa per continuare"
-
-
     fmt_chiedi_stringa: .asciz "Inserisci qualsiasi carattere per visualizzare le modifiche e proseguire la visualizzazione del menù: "
     fmt_prompt_stringa: .asciz "%s"
     fmt_scan_chiedi: .asciz "%s"
     .align 2
 
 .data
+    // numero degli studenti
     n_studente: .word 0                                                                 // numero degli studenti
 
     // struttura studente, con relativi offset
@@ -73,13 +71,13 @@
     .equ size_studente_anno, 4
     .equ offset_studente_matricola, 0
     .equ offset_studente_nome, offset_studente_matricola + size_studente_matricola
-    .equ offset_studente_media_voti, offset_studente_nome + size_studente_nome + 4
-    .equ offset_studente_anno, offset_studente_media_voti + size_studente_media_voti
+    .equ offset_studente_media_voti, offset_studente_nome + size_studente_nome + 4 //perchè 36 non è divisibile per 8, ma 40 si
+    .equ offset_studente_anno, offset_studente_media_voti + size_studente_media_voti    //non aggiungiamo qualcosa nonostante passiamo da grande perchè 48 è divisibile per 4
     .equ studente_size_aligned, 56
 
 .bss
     tmp_str: .skip 128
-    tmp_int: .skip 8
+    tmp_int: .skip 8   
     tmp_double: .skip 8
     students: .skip studente_size_aligned * max_studente
 
@@ -201,12 +199,14 @@ main:
         //se 7 scambia due studenti
         cmp x0, #7
         bne no_scambia_due_studenti
+
         read_int fmt_prompt_index
         ldr w19, tmp_int
         read_int fmt_prompt_index
         ldr w0, tmp_int
         mov w1, w19
         bl scambia
+
         no_scambia_due_studenti:
         cmp x0, #8
         bne no_ordina_studenti
@@ -478,10 +478,6 @@ print_tabella_media:
     stp x29, x30, [sp, #-16]!
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
-    //ricevo la media minima in x0
-    //read_int fmt_prompt_media_studenti
-    //sposto la media minima e la converto in float
-    //scvtf d0, x0
     read_double fmt_prompt_voti                             // inserimento della media voti
     fmov d8, d0                                             // sposto la media minima in un registro non volatile
     // stampo gli header della tabella dei dati
@@ -492,12 +488,11 @@ print_tabella_media:
     adr x0, fmt_menu_line
     bl printf
     // loop per stampare gli studenti nell'array
-    mov x19, #0                                             // indice del ciclo
-    ldr x20, n_studente                                     // numero degli studenti
-    ldr x21, =students                                      // puntatore all'array degli studenti
-    // x1 è la dimensione di uno studente
-    //mov x1, studente_size_aligned
-    bl print_studente_media
+   mov x19, #0                                    // indice del ciclo
+    ldr x20, n_studente                            // numero degli studenti
+    ldr x21, =students                             // puntatore all'array degli studenti
+    bl print_studente_media                        // chiamo la funzione ricorsiva
+
     //stampa una linea di trattini
     adr x0, fmt_menu_line
     bl printf
@@ -513,26 +508,25 @@ print_tabella_media:
 .type print_studente_media, %function
 print_studente_media:
     // prologo della funzione
+    //gira ogni studente e ne controlla la media, se la media è maggiore del valore dato stampa lo studente; vai poi allo studente successivo
+    
     stp x29, x30, [sp, #-16]!
     stp x19, x20, [sp, #-16]!
     base:
         cmp x19, x20
         beq exit
-    controllo:
+     controllo:
         mov x1, studente_size_aligned
-        //x0 = posizione attuale
-        madd x0, x1, x19, x21
+        madd x0, x1, x19, x21                       // x0 = posizione attuale nell'array degli studenti
         //d1 la media dello studente attuale
-        ldr d1, [x0, offset_studente_media_voti]
-        fcmp d1, d8
-        bge bStampa
+        ldr d1, [x0, offset_studente_media_voti]    
+        fcmp d1, d8                                 // se la media dello studente è minore della media inserita
+        blt ricorsione                              // salto alla prossima chiamata a funzione
+    stampa_studente_media_maggiore:
+        print w19                                   // stampo lo studente
     ricorsione:
-        add x19, x19, #1
-        bl print_studente_media
-        b exit
-    bStampa:
-        print w19
-        b ricorsione
+        add x19, x19, #1                            // aumento l'indice della ricorsione
+        bl print_studente_media                     // richiamo la funzione
     exit:
     // epilogo della funzione
     ldp x19, x20, [sp], #16
@@ -603,7 +597,7 @@ MediaVoti:
     fdiv d0, d2, d3                                 //divido la somma delle medie dei voti con il numero degli studenti dell'anno in input
     //adr x0, fmt_scan_int                          //modificare il format
     adr x0, fmt_media_voti_double
-    bl printf
+    bl printf                                       // stampo il risultato che ho ottenuto
     // epilogo della funzione
     ldp x29, x30, [sp], #16
     ret
@@ -612,10 +606,12 @@ MediaVoti:
 // funzione per scambiare due studenti
 .type scambia, %function
 scambia:
-    // input: niente
+//in w19 a w0 contengono gli indici da scambiare
     stp x29, x30, [sp, #-16]!
     stp x19, x20, [sp, #-16]!
     str x21, [sp, #-8]!
+
+    //controllo che lo scambio sia possibile e che tali indici esistano
     mov w20, w0                         // carico l'indice del primo studente in w20
     ldr w0, n_studente                  // carico il numero degli studenti
     cmp w20, w0                         // controllo che lo studente esista
@@ -628,6 +624,7 @@ scambia:
     bge fail_scambia_studenti           // salto alla fine
     cmp w21, #0                         // confronto con 0 per evitare indici negativi
     blt fail_scambia_studenti           // salto alla fine
+
     // ordino gli indici inseriti in modo crescente
     cmp w20, w21
     ble endif_scambia
@@ -635,6 +632,8 @@ scambia:
     mov w20, w21
     mov w21, w0
     endif_scambia:
+
+
     ldr x19, =students                  // in x19 l'indirizzo degli studenti
     sub sp, sp, studente_size_aligned   // alloco la parte dello stack che uso per memorizzare temporaneamente studente0
     // 1°step  copiare il primo studente nello stack
@@ -675,7 +674,7 @@ bubbleSort:
     stp x25, x26, [sp, #-16]!
     str x27, [sp, #-8]!
     // post-tested loop per ciclare le passate del bubbleSort con indice j che 
-    // va da 1 a n  (E' come se questo ciclo esterno andasse da sinistra verso destra, ad ogni passata un'elemento da sinistra in più sarà stato ordinato)
+// va da 1 a n  (E' come se questo ciclo esterno andasse da sinistra verso destra, ad ogni passata un'elemento da sinistra in più sarà stato ordinato)
     adr x19, students                       // carico in x19 il puntatore all'array con gli studenti
     ldr w20, n_studente                     // carico in x20 il numero di studenti
     mov w26, studente_size_aligned          // carico in w26 la grandezza di un determinato studente
